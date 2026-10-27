@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Das lernende Neuron</title>
+</head><body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: ein Arbeitstisch – links das Bild, in der Mitte das Gewichtsraster, rechts die Rechnung; darunter Steuerung, alle Bilder, eigenes Bild. */
+:root{
+  --bg:#F5F7FA; --panel:#FFFFFF; --ink:#16233D; --muted:#5D6880; --line:#D5DCE6;
+  --navy:#1A3260; --accent:#4590B8; --pos:#1E7B4C; --neg:#B03A2E;
+  --pos-bg:#DCEFE3; --neg-bg:#F6DEDB; --pixel:#16233D; --off:#FFFFFF;
+  --ok:#1E7B4C; --bad:#B03A2E;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F1726; --panel:#172238; --ink:#E7ECF5; --muted:#9AA6BD; --line:#2C3A55;
+  --navy:#9DB8E8; --accent:#6FB3D8; --pos:#5CC48C; --neg:#F08A7E;
+  --pos-bg:#1C3B2C; --neg-bg:#43231F; --pixel:#E7ECF5; --off:#0F1726; --ok:#5CC48C; --bad:#F08A7E; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1726; --panel:#172238; --ink:#E7ECF5; --muted:#9AA6BD; --line:#2C3A55;
+  --navy:#9DB8E8; --accent:#6FB3D8; --pos:#5CC48C; --neg:#F08A7E;
+  --pos-bg:#1C3B2C; --neg-bg:#43231F; --pixel:#E7ECF5; --off:#0F1726; --ok:#5CC48C; --bad:#F08A7E; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.45;margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:18px}
+header{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:end;justify-content:space-between}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(28px,4vw,42px);line-height:1.05;margin:0;color:var(--navy);text-wrap:balance}
+.lead{margin:6px 0 0;color:var(--muted);max-width:60ch}
+.rule{font-family:var(--f-mono);font-size:13px;color:var(--muted)}
+label.sel{display:grid;gap:4px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+select,button{font:inherit}
+select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);text-transform:none;letter-spacing:0;font-size:16px}
+.bench{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr) minmax(0,1.1fr);gap:18px;align-items:stretch}
+@media (max-width:860px){.bench{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;min-width:0}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin:0 0 10px}
+.grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;width:100%;max-width:300px;aspect-ratio:1;margin-inline:auto}
+.grid5 .c{border:1px solid var(--line);border-radius:4px;background:var(--off);display:grid;place-items:center;font-family:var(--f-mono);font-weight:700;font-size:clamp(14px,2.2vw,22px);transition:background .25s, transform .25s}
+.grid5 .c.on{background:var(--pixel);border-color:var(--pixel)}
+.w .c{background:var(--panel)}
+.w .c.p{color:var(--pos)} .w .c.n{color:var(--neg)} .w .c.z{color:var(--line)}
+.w .c.hit{outline:3px solid var(--accent);outline-offset:-3px}
+.w .c.flash{transform:scale(1.08)}
+.soll{margin-top:12px;text-align:center;font-family:var(--f-display);font-weight:600;font-size:20px}
+.soll b{font-size:28px}
+.calc{display:grid;gap:10px;font-size:17px}
+.calc .big{font-family:var(--f-mono);font-size:clamp(20px,2.2vw,26px);font-weight:700;color:var(--navy)}
+.verdict{padding:10px 12px;border-radius:10px;font-weight:700}
+.verdict.ok{background:var(--pos-bg);color:var(--ok)} .verdict.bad{background:var(--neg-bg);color:var(--bad)}
+.verdict.idle{background:var(--bg);color:var(--muted);font-weight:400}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+button{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:10px 16px;border-radius:999px;cursor:pointer;font-weight:700}
+button.primary{background:var(--navy);border-color:var(--navy);color:var(--bg)}
+button:hover{border-color:var(--accent)}
+button:focus-visible,select:focus-visible,.cell-btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.speed{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:14px}
+.stats{display:flex;flex-wrap:wrap;gap:10px 28px;align-items:baseline}
+.stat{display:grid}
+.stat .v{font-family:var(--f-mono);font-size:26px;font-weight:700;color:var(--navy);font-variant-numeric:tabular-nums}
+.stat .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+svg.spark{width:100%;height:70px;display:block}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:10px}
+.thumb{display:grid;gap:4px;justify-items:center;font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.thumb .g{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;width:52px;height:52px;padding:3px;border-radius:6px;border:2px solid var(--line)}
+.thumb .g i{background:var(--off)} .thumb .g i.on{background:var(--pixel)}
+.thumb.ok .g{border-color:var(--ok)} .thumb.bad .g{border-color:var(--bad);background:var(--neg-bg)}
+.thumb.cur .g{box-shadow:0 0 0 3px var(--accent)}
+.own{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:22px;align-items:start}
+@media (max-width:700px){.own{grid-template-columns:1fr}}
+.cell-btn{cursor:pointer}
+.legend{color:var(--muted);font-size:14px}
+.note{font-size:14px;color:var(--muted);margin:0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Das lernende Neuron</h1>
+      <p class="lead">Ein Neuron soll T von L unterscheiden. Es startet mit lauter Nullen und lernt nur aus seinen Fehlern – mit derselben Regel wie auf dem Arbeitsblatt.</p>
+      <p class="rule">sagt «T», wenn Summe ≥ 1 · sagt L, soll T → +1 auf schwarze Pixel · sagt T, soll L → −1</p>
+    </div>
+    <label class="sel" for="set">Bilder
+      <select id="set">
+        <option value="klein">12 Bilder vom Arbeitsblatt</option>
+        <option value="gross">61 Bilder: T und L an jeder Stelle</option>
+      </select>
+    </label>
+  </header>
+
+  <section class="bench" aria-label="Aktueller Lernschritt">
+    <div class="panel">
+      <p class="eyebrow" id="bildTitel">Bild</p>
+      <div class="grid5" id="bild" aria-label="aktuelles Bild"></div>
+      <div class="soll" id="soll"></div>
+    </div>
+    <div class="panel">
+      <p class="eyebrow">Gewichte des Neurons</p>
+      <div class="grid5 w" id="gew" aria-label="Gewichte"></div>
+      <p class="note" style="margin-top:10px;text-align:center">Umrandet: die Felder, auf denen das Bild schwarz ist.</p>
+    </div>
+    <div class="panel calc" aria-live="polite">
+      <p class="eyebrow" style="margin:0">Rechnung</p>
+      <div id="rechnung" class="legend">Drücken Sie «Ein Bild lernen».</div>
+      <div class="big" id="summe">–</div>
+      <div class="verdict idle" id="urteil">Noch nichts gelernt.</div>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Steuerung">
+    <div class="controls">
+      <button class="primary" id="schritt">Ein Bild lernen</button>
+      <button id="auto">▶ Automatisch</button>
+      <button id="reset">Alles auf 0</button>
+      <span class="speed"><label for="tempo">Tempo</label><input id="tempo" type="range" min="1" max="20" value="4"></span>
+    </div>
+    <div class="stats" style="margin-top:16px">
+      <div class="stat"><span class="v" id="sRunde">0</span><span class="k">Runden</span></div>
+      <div class="stat"><span class="v" id="sSchritte">0</span><span class="k">Bilder gelernt</span></div>
+      <div class="stat"><span class="v" id="sKorr">0</span><span class="k">Korrekturen</span></div>
+      <div class="stat"><span class="v" id="sTreffer">–</span><span class="k">jetzt richtig</span></div>
+      <div class="stat"><span class="v" id="sBest">–</span><span class="k">bisher bestes</span></div>
+    </div>
+    <svg class="spark" id="spark" viewBox="0 0 600 70" preserveAspectRatio="none" aria-label="Verlauf: richtig erkannte Bilder"></svg>
+    <p class="note" id="sparkNote">Verlauf: wie viele Bilder nach jedem Lernschritt richtig erkannt werden.</p>
+  </section>
+
+  <section class="panel" aria-label="Alle Bilder">
+    <p class="eyebrow">Alle Bilder – grün: richtig erkannt, rot: falsch</p>
+    <div class="gallery" id="galerie"></div>
+  </section>
+
+  <section class="panel" aria-label="Eigenes Bild">
+    <p class="eyebrow">Ihr eigenes Bild</p>
+    <div class="own">
+      <div class="grid5" id="eigen" aria-label="eigenes Bild, Felder anklicken"></div>
+      <div class="calc">
+        <p class="note">Klicken Sie Felder an, um sie schwarz oder weiss zu machen. Das Neuron rechnet sofort mit den aktuellen Gewichten.</p>
+        <div class="big" id="eSumme">Summe 0</div>
+        <div class="verdict idle" id="eUrteil">sagt L</div>
+        <div class="controls">
+          <button id="lerneT">Das ist ein T – lernen</button>
+          <button id="lerneL">Das ist ein L – lernen</button>
+          <button id="leeren">Leeren</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+const DATEN = {"klein": [{"n": "T1", "p": "1111100100001000010000100", "s": "T"}, {"n": "L1", "p": "1000010000100001000011111", "s": "L"}, {"n": "T2", "p": "0111000100001000010000100", "s": "T"}, {"n": "L2", "p": "0100001000010000100001111", "s": "L"}, {"n": "T3", "p": "0000011111001000010000100", "s": "T"}, {"n": "L3", "p": "0000010000100001000011110", "s": "L"}, {"n": "T4", "p": "1110001000010000100000000", "s": "T"}, {"n": "L4", "p": "1000010000100001110000000", "s": "L"}, {"n": "T5", "p": "1111100100001000000000000", "s": "T"}, {"n": "L5", "p": "0000000100001000010000111", "s": "L"}, {"n": "T6", "p": "0011100010000100001000010", "s": "T"}, {"n": "L6", "p": "1000010000100001000011000", "s": "L"}], "gross": [{"n": "T1", "p": "1110001000010000000000000", "s": "T"}, {"n": "L2", "p": "1000010000111000000000000", "s": "L"}, {"n": "T3", "p": "0111000100001000000000000", "s": "T"}, {"n": "L4", "p": "0100001000011100000000000", "s": "L"}, {"n": "T5", "p": "0011100010000100000000000", "s": "T"}, {"n": "L6", "p": "0010000100001110000000000", "s": "L"}, {"n": "T7", "p": "0000011100010000100000000", "s": "T"}, {"n": "L8", "p": "0000010000100001110000000", "s": "L"}, {"n": "T9", "p": "0000001110001000010000000", "s": "T"}, {"n": "L10", "p": "0000001000010000111000000", "s": "L"}, {"n": "T11", "p": "0000000111000100001000000", "s": "T"}, {"n": "L12", "p": "0000000100001000011100000", "s": "L"}, {"n": "T13", "p": "0000000000111000100001000", "s": "T"}, {"n": "L14", "p": "0000000000100001000011100", "s": "L"}, {"n": "T15", "p": "0000000000011100010000100", "s": "T"}, {"n": "L16", "p": "0000000000010000100001110", "s": "L"}, {"n": "T17", "p": "0000000000001110001000010", "s": "T"}, {"n": "L18", "p": "0000000000001000010000111", "s": "L"}, {"n": "T19", "p": "1111100100001000010000100", "s": "T"}, {"n": "L20", "p": "1000010000100001000011111", "s": "L"}, {"n": "T21", "p": "1110001000010000100000000", "s": "T"}, {"n": "L22", "p": "1000010000100001110000000", "s": "L"}, {"n": "T23", "p": "0111000100001000010000000", "s": "T"}, {"n": "L24", "p": "0100001000010000111000000", "s": "L"}, {"n": "T25", "p": "0011100010000100001000000", "s": "T"}, {"n": "L26", "p": "0010000100001000011100000", "s": "L"}, {"n": "T27", "p": "0000011100010000100001000", "s": "T"}, {"n": "L28", "p": "0000010000100001000011100", "s": "L"}, {"n": "T29", "p": "0000001110001000010000100", "s": "T"}, {"n": "L30", "p": "0000001000010000100001110", "s": "L"}, {"n": "T31", "p": "0000000111000100001000010", "s": "T"}, {"n": "L32", "p": "0000000100001000010000111", "s": "L"}, {"n": "T33", "p": "1111100100001000000000000", "s": "T"}, {"n": "L34", "p": "1000010000111100000000000", "s": "L"}, {"n": "T35", "p": "0000011111001000010000000", "s": "T"}, {"n": "L36", "p": "0100001000011110000000000", "s": "L"}, {"n": "T37", "p": "0000000000111110010000100", "s": "T"}, {"n": "L38", "p": "0000010000100001111000000", "s": "L"}, {"n": "T39", "p": "1111001000010000100000000", "s": "T"}, {"n": "L40", "p": "0000001000010000111100000", "s": "L"}, {"n": "T41", "p": "0111100100001000010000000", "s": "T"}, {"n": "L42", "p": "0000000000100001000011110", "s": "L"}, {"n": "T43", "p": "0000011110010000100001000", "s": "T"}, {"n": "L44", "p": "0000000000010000100001111", "s": "L"}, {"n": "T45", "p": "0000001111001000010000100", "s": "T"}, {"n": "L46", "p": "1000010000100001111000000", "s": "L"}, {"n": "T47", "p": "1111000100001000010000000", "s": "T"}, {"n": "L48", "p": "0100001000010000111100000", "s": "L"}, {"n": "T49", "p": "0111100010000100001000000", "s": "T"}, {"n": "L50", "p": "0000010000100001000011110", "s": "L"}, {"n": "T51", "p": "0000011110001000010000100", "s": "T"}, {"n": "L52", "p": "0000001000010000100001111", "s": "L"}, {"n": "T53", "p": "0000001111000100001000010", "s": "T"}, {"n": "L54", "p": "1000010000100001100000000", "s": "L"}, {"n": "L55", "p": "0100001000010000110000000", "s": "L"}, {"n": "L56", "p": "0010000100001000011000000", "s": "L"}, {"n": "L57", "p": "0001000010000100001100000", "s": "L"}, {"n": "L58", "p": "0000010000100001000011000", "s": "L"}, {"n": "L59", "p": "0000001000010000100001100", "s": "L"}, {"n": "L60", "p": "0000000100001000010000110", "s": "L"}, {"n": "L61", "p": "0000000010000100001000011", "s": "L"}]};
+const SCHWELLE = 1;
+const parse = s => [...s].map(Number);
+const sets = {};
+for (const k of Object.keys(DATEN)) sets[k] = DATEN[k].map(d => ({ n: d.n, p: parse(d.p), s: d.s }));
+
+// ---- Kern: identisch mit Pruefzahlen_KI_L2.py
+const summe = (w, p) => p.reduce((a, v, i) => a + (v ? w[i] : 0), 0);
+const antwort = (w, p) => summe(w, p) >= SCHWELLE ? "T" : "L";
+function lernschritt(w, p, soll) {
+  const su = summe(w, p), a = su >= SCHWELLE ? "T" : "L";
+  if (a === soll) return { su, a, korr: 0 };
+  const d = soll === "T" ? 1 : -1;
+  p.forEach((v, i) => { if (v) w[i] += d; });
+  return { su, a, korr: d };
+}
+const treffer = (w, ds) => ds.filter(d => antwort(w, d.p) === d.s).length;
+
+// ---- Zustand
+let setKey = "klein", daten = sets[setKey];
+let w = Array(25).fill(0), idx = 0, runde = 0, schritte = 0, korr = 0, best = 0, verlauf = [];
+let timer = null, eigen = Array(25).fill(0), letzte = null;
+
+const $ = id => document.getElementById(id);
+function cells(el, n, cls) { el.innerHTML = ""; const out = []; for (let i = 0; i < n; i++) { const c = document.createElement(cls === "btn" ? "button" : "div"); c.className = "c" + (cls === "btn" ? " cell-btn" : ""); if (cls === "btn") { c.type = "button"; c.setAttribute("aria-label", "Feld " + "abcde"[i % 5] + (Math.floor(i / 5) + 1)); } el.appendChild(c); out.push(c); } return out; }
+const bildC = cells($("bild"), 25), gewC = cells($("gew"), 25), eigenC = cells($("eigen"), 25, "btn");
+const fmt = v => v > 0 ? "+" + v : v < 0 ? "−" + (-v) : "0";
+
+function zeigeBild(d) {
+  d.p.forEach((v, i) => bildC[i].classList.toggle("on", !!v));
+  $("soll").innerHTML = d ? `soll: <b>${d.s}</b>` : "";
+}
+function zeigeGewichte(p, flash) {
+  gewC.forEach((c, i) => {
+    c.textContent = fmt(w[i]);
+    c.className = "c " + (w[i] > 0 ? "p" : w[i] < 0 ? "n" : "z") + (p && p[i] ? " hit" : "") + (flash && p && p[i] ? " flash" : "");
+    c.style.background = w[i] > 0 ? "var(--pos-bg)" : w[i] < 0 ? "var(--neg-bg)" : "";
+  });
+  if (flash) setTimeout(() => gewC.forEach(c => c.classList.remove("flash")), 260);
+}
+function galerie() {
+  const g = $("galerie"); g.innerHTML = "";
+  daten.forEach((d, i) => {
+    const ok = antwort(w, d.p) === d.s;
+    const t = document.createElement("div");
+    t.className = "thumb " + (schritte ? (ok ? "ok" : "bad") : "") + (letzte === i ? " cur" : "");
+    t.innerHTML = `<div class="g">${d.p.map(v => `<i class="${v ? "on" : ""}"></i>`).join("")}</div><span>${d.n}</span>`;
+    g.appendChild(t);
+  });
+}
+function spark() {
+  const s = $("spark"), n = daten.length, W = 600, H = 70;
+  const pts = verlauf.slice(-300);
+  if (!pts.length) { s.innerHTML = ""; return; }
+  const x = i => pts.length === 1 ? W : (i / (pts.length - 1)) * W;
+  const y = v => H - 4 - (v / n) * (H - 8);
+  const line = pts.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  s.innerHTML = `<line x1="0" x2="${W}" y1="${y(n)}" y2="${y(n)}" stroke="var(--line)" stroke-dasharray="4 4"/>
+    <polygon points="0,${H} ${line} ${W},${H}" fill="var(--accent)" opacity=".15"/>
+    <polyline points="${line}" fill="none" stroke="var(--accent)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>
+    <circle cx="${x(pts.length - 1)}" cy="${y(pts[pts.length - 1])}" r="4" fill="var(--navy)"/>`;
+}
+function stats() {
+  const t = treffer(w, daten);
+  $("sRunde").textContent = runde; $("sSchritte").textContent = schritte; $("sKorr").textContent = korr;
+  $("sTreffer").textContent = schritte ? `${t} / ${daten.length}` : "–";
+  $("sBest").textContent = schritte ? `${best} / ${daten.length}` : "–";
+}
+function eigenRechnen() {
+  eigen.forEach((v, i) => eigenC[i].classList.toggle("on", !!v));
+  const su = summe(w, eigen), a = su >= SCHWELLE ? "T" : "L";
+  $("eSumme").textContent = "Summe " + fmt(su).replace("+", "");
+  $("eUrteil").textContent = `${su} ${su >= SCHWELLE ? "≥" : "<"} 1  →  sagt ${a}`;
+  $("eUrteil").className = "verdict idle";
+}
+
+function schritt(still) {
+  const i = idx, d = daten[i];
+  const r = lernschritt(w, d.p, d.s);
+  schritte++; if (r.korr) korr++;
+  idx = (idx + 1) % daten.length;
+  if (idx === 0) runde++;
+  const t = treffer(w, daten); best = Math.max(best, t); verlauf.push(t);
+  letzte = i;
+  if (!still) {
+    zeigeBild(d);
+    $("bildTitel").textContent = `Bild ${d.n} · ${i + 1} von ${daten.length}`;
+    const schwarz = d.p.reduce((a, v) => a + v, 0);
+    $("rechnung").textContent = `${schwarz} schwarze Pixel: ihre Gewichte zusammenzählen`;
+    $("summe").textContent = `Summe ${r.su} ${r.su >= SCHWELLE ? "≥" : "<"} 1  →  sagt ${r.a}`;
+    const u = $("urteil");
+    if (!r.korr) { u.className = "verdict ok"; u.textContent = "Richtig. Nichts ändern."; }
+    else { u.className = "verdict bad"; u.textContent = `Falsch, es soll ${d.s} sein. Darum ${r.korr > 0 ? "+1" : "−1"} auf jedes schwarze Pixel.`; }
+    zeigeGewichte(d.p, !!r.korr);
+    galerie(); spark(); stats(); eigenRechnen();
+  }
+  return t;
+}
+function fertig() {
+  // eine ganze Runde ohne Korrektur = Stillstand
+  return daten.every(d => antwort(w, d.p) === d.s);
+}
+function stopAuto() { clearInterval(timer); timer = null; $("auto").textContent = "▶ Automatisch"; }
+function startAuto() {
+  const ms = () => Math.max(30, 900 / Number($("tempo").value));
+  $("auto").textContent = "❚❚ Anhalten";
+  const tick = () => {
+    schritt(false);
+    if (fertig() && idx === 0) { stopAuto(); $("urteil").className = "verdict ok"; $("urteil").textContent = "Fertig: Alle Bilder werden richtig erkannt. Eine ganze Runde lang musste nichts mehr korrigiert werden."; return; }
+    if (runde >= 30 && idx === 0) { stopAuto(); $("urteil").className = "verdict bad"; $("urteil").textContent = `Nach 30 Runden immer noch nicht fertig. Bestes Ergebnis: ${best} von ${daten.length}. Ein einzelnes Neuron schafft diese Bilder nicht.`; return; }
+    timer = setTimeout(tick, ms());
+  };
+  tick();
+}
+function reset() {
+  stopAuto();
+  daten = sets[setKey];
+  w = Array(25).fill(0); idx = 0; runde = 0; schritte = 0; korr = 0; best = 0; verlauf = []; letzte = null;
+  zeigeBild(daten[0]);
+  $("bildTitel").textContent = `Bild ${daten[0].n} · 1 von ${daten.length} (als Nächstes)`;
+  $("rechnung").textContent = "Drücken Sie «Ein Bild lernen».";
+  $("summe").textContent = "–";
+  $("urteil").className = "verdict idle"; $("urteil").textContent = "Noch nichts gelernt. Alle Gewichte sind 0.";
+  zeigeGewichte(null, false); galerie(); spark(); stats(); eigenRechnen();
+}
+
+$("schritt").addEventListener("click", () => { stopAuto(); schritt(false); });
+$("auto").addEventListener("click", () => timer ? stopAuto() : startAuto());
+$("reset").addEventListener("click", reset);
+$("set").addEventListener("change", e => { setKey = e.target.value; reset(); });
+eigenC.forEach((c, i) => c.addEventListener("click", () => { eigen[i] = eigen[i] ? 0 : 1; eigenRechnen(); }));
+function eigenLernen(soll) {
+  const r = lernschritt(w, eigen, soll);
+  zeigeGewichte(eigen, !!r.korr); galerie(); stats(); eigenRechnen();
+  const u = $("eUrteil");
+  u.className = "verdict " + (r.korr ? "bad" : "ok");
+  u.textContent = r.korr ? `Es sagte ${r.a}. Korrigiert: ${r.korr > 0 ? "+1" : "−1"} auf jedes schwarze Pixel.` : `Es sagte schon ${r.a}. Nichts geändert.`;
+}
+$("lerneT").addEventListener("click", () => eigenLernen("T"));
+$("lerneL").addEventListener("click", () => eigenLernen("L"));
+$("leeren").addEventListener("click", () => { eigen = Array(25).fill(0); eigenRechnen(); });
+reset();
+</script>
+
+</body></html>
