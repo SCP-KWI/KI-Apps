@@ -1,7 +1,10 @@
-<!doctype html>
-<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Das lernende Neuron</title>
-</head><body>
+<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@500;700&display=swap">
 <style>
@@ -74,7 +77,34 @@ svg.spark{width:100%;height:70px;display:block}
 .legend{color:var(--muted);font-size:14px}
 .note{font-size:14px;color:var(--muted);margin:0}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+
+.tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:0}
+.tab{border:1px solid var(--line);border-bottom:none;border-radius:10px 10px 0 0;background:var(--bg);padding:10px 16px;font-weight:700;color:var(--muted);text-decoration:none}
+.tab[aria-current="page"]{background:var(--panel);color:var(--navy);border-color:var(--line);position:relative;top:1px}
+.split{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+.gtitle{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline}
+.gtitle .stat .v{font-size:20px}
+.stufen{display:grid;gap:10px}
+.stufe{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;align-items:start;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.stufe .chip{grid-row:span 2;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-mono);font-weight:700;background:var(--bg);color:var(--muted);border:2px solid var(--line)}
+.stufe.done{border-color:var(--ok)}
+.stufe.done .chip{background:var(--pos-bg);color:var(--ok);border-color:var(--ok)}
+.stufe h3{margin:0;font-family:var(--f-display);font-size:18px;color:var(--navy)}
+.stufe p{margin:0;color:var(--muted);font-size:15px}
+.stufe .rec{font-family:var(--f-mono);color:var(--ink)}
+.toggle{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:14px}
+.pix{font-family:var(--f-mono);color:var(--muted)}
+a{color:var(--accent)}
+[hidden]{display:none!important}
+.bench.two{grid-template-columns:minmax(0,1fr) minmax(0,1.15fr)}
+@media (max-width:860px){.bench.two{grid-template-columns:1fr}}
+
 </style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} img{max-width:100%}</style>
+</head>
+<body>
+
 
 <div class="wrap">
   <header>
@@ -83,80 +113,137 @@ svg.spark{width:100%;height:70px;display:block}
       <p class="lead">Ein Neuron soll T von L unterscheiden. Es startet mit lauter Nullen und lernt nur aus seinen Fehlern – mit derselben Regel wie auf dem Arbeitsblatt.</p>
       <p class="rule">sagt «T», wenn Summe ≥ 1 · sagt L, soll T → +1 auf schwarze Pixel · sagt T, soll L → −1</p>
     </div>
-    <label class="sel" for="set">Bilder
-      <select id="set">
-        <option value="klein">12 Bilder vom Arbeitsblatt</option>
-        <option value="gross">61 Bilder: T und L an jeder Stelle</option>
-      </select>
-    </label>
   </header>
 
-  <section class="bench" aria-label="Aktueller Lernschritt">
-    <div class="panel">
-      <p class="eyebrow" id="bildTitel">Bild</p>
-      <div class="grid5" id="bild" aria-label="aktuelles Bild"></div>
-      <div class="soll" id="soll"></div>
-    </div>
-    <div class="panel">
-      <p class="eyebrow">Gewichte des Neurons</p>
-      <div class="grid5 w" id="gew" aria-label="Gewichte"></div>
-      <p class="note" style="margin-top:10px;text-align:center">Umrandet: die Felder, auf denen das Bild schwarz ist.</p>
-    </div>
-    <div class="panel calc" aria-live="polite">
-      <p class="eyebrow" style="margin:0">Rechnung</p>
-      <div id="rechnung" class="legend">Drücken Sie «Ein Bild lernen».</div>
-      <div class="big" id="summe">–</div>
-      <div class="verdict idle" id="urteil">Noch nichts gelernt.</div>
-    </div>
-  </section>
+  <nav class="tabs" aria-label="Ansicht">
+    <a class="tab" href="#lernen" id="tabLernen">Lernen</a>
+    <a class="tab" href="#challenge" id="tabChallenge">Challenge: Täuschen Sie das Neuron</a>
+  </nav>
 
-  <section class="panel" aria-label="Steuerung">
-    <div class="controls">
-      <button class="primary" id="schritt">Ein Bild lernen</button>
-      <button id="auto">▶ Automatisch</button>
-      <button id="reset">Alles auf 0</button>
-      <span class="speed"><label for="tempo">Tempo</label><input id="tempo" type="range" min="1" max="20" value="4"></span>
-    </div>
-    <div class="stats" style="margin-top:16px">
-      <div class="stat"><span class="v" id="sRunde">0</span><span class="k">Runden</span></div>
-      <div class="stat"><span class="v" id="sSchritte">0</span><span class="k">Bilder gelernt</span></div>
-      <div class="stat"><span class="v" id="sKorr">0</span><span class="k">Korrekturen</span></div>
-      <div class="stat"><span class="v" id="sTreffer">–</span><span class="k">jetzt richtig</span></div>
-      <div class="stat"><span class="v" id="sBest">–</span><span class="k">bisher bestes</span></div>
-    </div>
-    <svg class="spark" id="spark" viewBox="0 0 600 70" preserveAspectRatio="none" aria-label="Verlauf: richtig erkannte Bilder"></svg>
-    <p class="note" id="sparkNote">Verlauf: wie viele Bilder nach jedem Lernschritt richtig erkannt werden.</p>
-  </section>
+  <!-- =============================== LERNEN -->
+  <div id="viewLernen" class="wrap" style="padding:0">
+    <section class="panel" aria-label="Bilder wählen">
+      <label class="sel" for="set">Mit welchen Bildern lernt das Neuron?
+        <select id="set">
+          <option value="klein">12 Bilder vom Arbeitsblatt</option>
+          <option value="gross">61 Bilder: T und L an jeder Stelle</option>
+          <option value="einseitig">Einseitig: T immer oben, L immer unten</option>
+        </select>
+      </label>
+    </section>
 
-  <section class="panel" aria-label="Alle Bilder">
-    <p class="eyebrow">Alle Bilder – grün: richtig erkannt, rot: falsch</p>
-    <div class="gallery" id="galerie"></div>
-  </section>
+    <section class="bench" aria-label="Aktueller Lernschritt">
+      <div class="panel">
+        <p class="eyebrow" id="bildTitel">Bild</p>
+        <div class="grid5" id="bild" aria-label="aktuelles Bild"></div>
+        <div class="soll" id="soll"></div>
+      </div>
+      <div class="panel">
+        <p class="eyebrow">Gewichte des Neurons</p>
+        <div class="grid5 w" id="gew" aria-label="Gewichte"></div>
+        <p class="note" style="margin-top:10px;text-align:center">Umrandet: die Felder, auf denen das Bild schwarz ist.</p>
+      </div>
+      <div class="panel calc" aria-live="polite">
+        <p class="eyebrow" style="margin:0">Rechnung</p>
+        <div id="rechnung" class="legend">Drücken Sie «Ein Bild lernen».</div>
+        <div class="big" id="summe">–</div>
+        <div class="verdict idle" id="urteil">Noch nichts gelernt.</div>
+      </div>
+    </section>
 
-  <section class="panel" aria-label="Eigenes Bild">
-    <p class="eyebrow">Ihr eigenes Bild</p>
-    <div class="own">
-      <div class="grid5" id="eigen" aria-label="eigenes Bild, Felder anklicken"></div>
-      <div class="calc">
-        <p class="note">Klicken Sie Felder an, um sie schwarz oder weiss zu machen. Das Neuron rechnet sofort mit den aktuellen Gewichten.</p>
-        <div class="big" id="eSumme">Summe 0</div>
-        <div class="verdict idle" id="eUrteil">sagt L</div>
-        <div class="controls">
-          <button id="lerneT">Das ist ein T – lernen</button>
-          <button id="lerneL">Das ist ein L – lernen</button>
-          <button id="leeren">Leeren</button>
+    <section class="panel" aria-label="Steuerung">
+      <div class="controls">
+        <button class="primary" id="schritt">Ein Bild lernen</button>
+        <button id="auto">▶ Automatisch</button>
+        <button id="reset">Alles auf 0</button>
+        <span class="speed"><label for="tempo">Tempo</label><input id="tempo" type="range" min="1" max="20" value="4"></span>
+      </div>
+      <div class="stats" style="margin-top:16px">
+        <div class="stat"><span class="v" id="sRunde">0</span><span class="k">Runden</span></div>
+        <div class="stat"><span class="v" id="sSchritte">0</span><span class="k">Bilder gelernt</span></div>
+        <div class="stat"><span class="v" id="sKorr">0</span><span class="k">Korrekturen</span></div>
+        <div class="stat"><span class="v" id="sTreffer">–</span><span class="k">Lernbilder richtig</span></div>
+        <div class="stat"><span class="v" id="sBest">–</span><span class="k">bisher bestes</span></div>
+      </div>
+      <svg class="spark" id="spark" viewBox="0 0 600 70" preserveAspectRatio="none" aria-label="Verlauf: richtig erkannte Lernbilder"></svg>
+      <p class="note">Verlauf: wie viele Lernbilder nach jedem Lernschritt richtig erkannt werden.</p>
+    </section>
+
+    <section class="panel" aria-label="Lernbilder">
+      <p class="eyebrow">Lernbilder – grün: richtig erkannt, rot: falsch</p>
+      <div class="gallery" id="galerie"></div>
+    </section>
+
+    <section class="panel" aria-label="Neue Bilder" id="neuPanel" hidden>
+      <div class="gtitle">
+        <p class="eyebrow">Neue Bilder – das Neuron hat sie nie gesehen</p>
+        <div class="stat"><span class="v" id="sNeu">–</span><span class="k">neue Bilder richtig</span></div>
+      </div>
+      <div class="gallery" id="galerieNeu"></div>
+      <p class="note" style="margin-top:10px">Diese Bilder werden nie gelernt, nur geprüft. So zeigt sich, ob das Neuron wirklich «T» und «L» gelernt hat.</p>
+    </section>
+
+    <section class="panel" aria-label="Eigenes Bild">
+      <p class="eyebrow">Ihr eigenes Bild</p>
+      <div class="own">
+        <div class="grid5" id="eigen" aria-label="eigenes Bild, Felder anklicken"></div>
+        <div class="calc">
+          <p class="note">Klicken Sie Felder an, um sie schwarz oder weiss zu machen. Das Neuron rechnet sofort mit den aktuellen Gewichten.</p>
+          <div class="big" id="eSumme">Summe 0</div>
+          <div class="verdict idle" id="eUrteil">sagt L</div>
+          <div class="controls">
+            <button id="lerneT">Das ist ein T – lernen</button>
+            <button id="lerneL">Das ist ein L – lernen</button>
+            <button id="leeren">Leeren</button>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
+  </div>
+
+  <!-- =============================== CHALLENGE -->
+  <div id="viewChallenge" class="wrap" style="padding:0" hidden>
+    <section class="panel">
+      <p class="eyebrow">Das Neuron</p>
+      <p style="margin:0;max-width:70ch">Dieses Neuron hat die <b>12 Bilder vom Arbeitsblatt</b> fertig gelernt und erkennt alle richtig. Seine Gewichte bleiben jetzt fest. Ihre Aufgabe: Bringen Sie es dazu, sich zu irren.</p>
+    </section>
+
+    <section class="bench two">
+      <div class="panel">
+        <p class="eyebrow">Ihr Bild – Felder anklicken</p>
+        <div class="grid5" id="chBild" aria-label="Challenge-Bild, Felder anklicken"></div>
+        <div class="controls" style="margin-top:14px;justify-content:center">
+          <button id="chLeeren">Leeren</button>
+          <span class="pix" id="chPix">0 Pixel</span>
+        </div>
+      </div>
+      <div class="panel calc" aria-live="polite">
+        <p class="eyebrow" style="margin:0">Das Neuron sagt</p>
+        <div class="big" id="chSumme">Summe 0 &lt; 1</div>
+        <div class="verdict idle" id="chUrteil">sagt L</div>
+        <label class="toggle" for="chZeig"><input type="checkbox" id="chZeig"> Gewichte zeigen (für Stufe 3 hilfreich)</label>
+        <div class="grid5 w" id="chGew" aria-label="Gewichte" hidden></div>
+      </div>
+    </section>
+
+    <section class="stufen" aria-label="Stufen">
+      <div class="stufe" id="st1"><span class="chip">1</span><h3>Kein T – und trotzdem «T»</h3><p>Zeichnen Sie etwas, das <b>kein T</b> ist, das Neuron aber «T» nennt.</p></div>
+      <div class="stufe" id="st2"><span class="chip">2</span><h3>Rekorde</h3><p>Ein falsches «T» mit möglichst <b>wenigen</b> Pixeln – und eines mit möglichst <b>vielen</b>. <span class="rec" id="st2rec">wenigste: – · meiste: –</span></p></div>
+      <div class="stufe" id="st3"><span class="chip">3</span><h3>Ein L, das als T gilt</h3><p>Zeichnen Sie ein Bild, das <b>jeder Mensch als L</b> erkennt – das Neuron sagt aber «T». <span id="st3msg"></span></p></div>
+      <div class="stufe" id="st4"><span class="chip">4</span><h3>Bonus: eine echte KI täuschen</h3><p>Öffnen Sie <a href="https://quickdraw.withgoogle.com/" target="_blank" rel="noopener">Quick, Draw!</a>. Bringen Sie die KI dazu, ein Wort zu sagen, obwohl Sie etwas ganz anderes zeichnen – zum Beispiel «Stuhl». <button id="st4btn" style="margin-left:6px;padding:4px 12px">Geschafft</button></p></div>
+    </section>
+  </div>
 </div>
 
 <script>
-const DATEN = {"klein": [{"n": "T1", "p": "1111100100001000010000100", "s": "T"}, {"n": "L1", "p": "1000010000100001000011111", "s": "L"}, {"n": "T2", "p": "0111000100001000010000100", "s": "T"}, {"n": "L2", "p": "0100001000010000100001111", "s": "L"}, {"n": "T3", "p": "0000011111001000010000100", "s": "T"}, {"n": "L3", "p": "0000010000100001000011110", "s": "L"}, {"n": "T4", "p": "1110001000010000100000000", "s": "T"}, {"n": "L4", "p": "1000010000100001110000000", "s": "L"}, {"n": "T5", "p": "1111100100001000000000000", "s": "T"}, {"n": "L5", "p": "0000000100001000010000111", "s": "L"}, {"n": "T6", "p": "0011100010000100001000010", "s": "T"}, {"n": "L6", "p": "1000010000100001000011000", "s": "L"}], "gross": [{"n": "T1", "p": "1110001000010000000000000", "s": "T"}, {"n": "L2", "p": "1000010000111000000000000", "s": "L"}, {"n": "T3", "p": "0111000100001000000000000", "s": "T"}, {"n": "L4", "p": "0100001000011100000000000", "s": "L"}, {"n": "T5", "p": "0011100010000100000000000", "s": "T"}, {"n": "L6", "p": "0010000100001110000000000", "s": "L"}, {"n": "T7", "p": "0000011100010000100000000", "s": "T"}, {"n": "L8", "p": "0000010000100001110000000", "s": "L"}, {"n": "T9", "p": "0000001110001000010000000", "s": "T"}, {"n": "L10", "p": "0000001000010000111000000", "s": "L"}, {"n": "T11", "p": "0000000111000100001000000", "s": "T"}, {"n": "L12", "p": "0000000100001000011100000", "s": "L"}, {"n": "T13", "p": "0000000000111000100001000", "s": "T"}, {"n": "L14", "p": "0000000000100001000011100", "s": "L"}, {"n": "T15", "p": "0000000000011100010000100", "s": "T"}, {"n": "L16", "p": "0000000000010000100001110", "s": "L"}, {"n": "T17", "p": "0000000000001110001000010", "s": "T"}, {"n": "L18", "p": "0000000000001000010000111", "s": "L"}, {"n": "T19", "p": "1111100100001000010000100", "s": "T"}, {"n": "L20", "p": "1000010000100001000011111", "s": "L"}, {"n": "T21", "p": "1110001000010000100000000", "s": "T"}, {"n": "L22", "p": "1000010000100001110000000", "s": "L"}, {"n": "T23", "p": "0111000100001000010000000", "s": "T"}, {"n": "L24", "p": "0100001000010000111000000", "s": "L"}, {"n": "T25", "p": "0011100010000100001000000", "s": "T"}, {"n": "L26", "p": "0010000100001000011100000", "s": "L"}, {"n": "T27", "p": "0000011100010000100001000", "s": "T"}, {"n": "L28", "p": "0000010000100001000011100", "s": "L"}, {"n": "T29", "p": "0000001110001000010000100", "s": "T"}, {"n": "L30", "p": "0000001000010000100001110", "s": "L"}, {"n": "T31", "p": "0000000111000100001000010", "s": "T"}, {"n": "L32", "p": "0000000100001000010000111", "s": "L"}, {"n": "T33", "p": "1111100100001000000000000", "s": "T"}, {"n": "L34", "p": "1000010000111100000000000", "s": "L"}, {"n": "T35", "p": "0000011111001000010000000", "s": "T"}, {"n": "L36", "p": "0100001000011110000000000", "s": "L"}, {"n": "T37", "p": "0000000000111110010000100", "s": "T"}, {"n": "L38", "p": "0000010000100001111000000", "s": "L"}, {"n": "T39", "p": "1111001000010000100000000", "s": "T"}, {"n": "L40", "p": "0000001000010000111100000", "s": "L"}, {"n": "T41", "p": "0111100100001000010000000", "s": "T"}, {"n": "L42", "p": "0000000000100001000011110", "s": "L"}, {"n": "T43", "p": "0000011110010000100001000", "s": "T"}, {"n": "L44", "p": "0000000000010000100001111", "s": "L"}, {"n": "T45", "p": "0000001111001000010000100", "s": "T"}, {"n": "L46", "p": "1000010000100001111000000", "s": "L"}, {"n": "T47", "p": "1111000100001000010000000", "s": "T"}, {"n": "L48", "p": "0100001000010000111100000", "s": "L"}, {"n": "T49", "p": "0111100010000100001000000", "s": "T"}, {"n": "L50", "p": "0000010000100001000011110", "s": "L"}, {"n": "T51", "p": "0000011110001000010000100", "s": "T"}, {"n": "L52", "p": "0000001000010000100001111", "s": "L"}, {"n": "T53", "p": "0000001111000100001000010", "s": "T"}, {"n": "L54", "p": "1000010000100001100000000", "s": "L"}, {"n": "L55", "p": "0100001000010000110000000", "s": "L"}, {"n": "L56", "p": "0010000100001000011000000", "s": "L"}, {"n": "L57", "p": "0001000010000100001100000", "s": "L"}, {"n": "L58", "p": "0000010000100001000011000", "s": "L"}, {"n": "L59", "p": "0000001000010000100001100", "s": "L"}, {"n": "L60", "p": "0000000100001000010000110", "s": "L"}, {"n": "L61", "p": "0000000010000100001000011", "s": "L"}]};
+const DATEN = {"klein": {"titel": "12 Bilder vom Arbeitsblatt", "lern": [{"n": "T1", "p": "1111100100001000010000100", "s": "T"}, {"n": "L1", "p": "1000010000100001000011111", "s": "L"}, {"n": "T2", "p": "0111000100001000010000100", "s": "T"}, {"n": "L2", "p": "0100001000010000100001111", "s": "L"}, {"n": "T3", "p": "0000011111001000010000100", "s": "T"}, {"n": "L3", "p": "0000010000100001000011110", "s": "L"}, {"n": "T4", "p": "1110001000010000100000000", "s": "T"}, {"n": "L4", "p": "1000010000100001110000000", "s": "L"}, {"n": "T5", "p": "1111100100001000000000000", "s": "T"}, {"n": "L5", "p": "0000000100001000010000111", "s": "L"}, {"n": "T6", "p": "0011100010000100001000010", "s": "T"}, {"n": "L6", "p": "1000010000100001000011000", "s": "L"}], "neu": []}, "gross": {"titel": "61 Bilder: T und L an jeder Stelle", "lern": [{"n": "T1", "p": "1110001000010000000000000", "s": "T"}, {"n": "L2", "p": "1000010000111000000000000", "s": "L"}, {"n": "T3", "p": "0111000100001000000000000", "s": "T"}, {"n": "L4", "p": "0100001000011100000000000", "s": "L"}, {"n": "T5", "p": "0011100010000100000000000", "s": "T"}, {"n": "L6", "p": "0010000100001110000000000", "s": "L"}, {"n": "T7", "p": "0000011100010000100000000", "s": "T"}, {"n": "L8", "p": "0000010000100001110000000", "s": "L"}, {"n": "T9", "p": "0000001110001000010000000", "s": "T"}, {"n": "L10", "p": "0000001000010000111000000", "s": "L"}, {"n": "T11", "p": "0000000111000100001000000", "s": "T"}, {"n": "L12", "p": "0000000100001000011100000", "s": "L"}, {"n": "T13", "p": "0000000000111000100001000", "s": "T"}, {"n": "L14", "p": "0000000000100001000011100", "s": "L"}, {"n": "T15", "p": "0000000000011100010000100", "s": "T"}, {"n": "L16", "p": "0000000000010000100001110", "s": "L"}, {"n": "T17", "p": "0000000000001110001000010", "s": "T"}, {"n": "L18", "p": "0000000000001000010000111", "s": "L"}, {"n": "T19", "p": "1111100100001000010000100", "s": "T"}, {"n": "L20", "p": "1000010000100001000011111", "s": "L"}, {"n": "T21", "p": "1110001000010000100000000", "s": "T"}, {"n": "L22", "p": "1000010000100001110000000", "s": "L"}, {"n": "T23", "p": "0111000100001000010000000", "s": "T"}, {"n": "L24", "p": "0100001000010000111000000", "s": "L"}, {"n": "T25", "p": "0011100010000100001000000", "s": "T"}, {"n": "L26", "p": "0010000100001000011100000", "s": "L"}, {"n": "T27", "p": "0000011100010000100001000", "s": "T"}, {"n": "L28", "p": "0000010000100001000011100", "s": "L"}, {"n": "T29", "p": "0000001110001000010000100", "s": "T"}, {"n": "L30", "p": "0000001000010000100001110", "s": "L"}, {"n": "T31", "p": "0000000111000100001000010", "s": "T"}, {"n": "L32", "p": "0000000100001000010000111", "s": "L"}, {"n": "T33", "p": "1111100100001000000000000", "s": "T"}, {"n": "L34", "p": "1000010000111100000000000", "s": "L"}, {"n": "T35", "p": "0000011111001000010000000", "s": "T"}, {"n": "L36", "p": "0100001000011110000000000", "s": "L"}, {"n": "T37", "p": "0000000000111110010000100", "s": "T"}, {"n": "L38", "p": "0000010000100001111000000", "s": "L"}, {"n": "T39", "p": "1111001000010000100000000", "s": "T"}, {"n": "L40", "p": "0000001000010000111100000", "s": "L"}, {"n": "T41", "p": "0111100100001000010000000", "s": "T"}, {"n": "L42", "p": "0000000000100001000011110", "s": "L"}, {"n": "T43", "p": "0000011110010000100001000", "s": "T"}, {"n": "L44", "p": "0000000000010000100001111", "s": "L"}, {"n": "T45", "p": "0000001111001000010000100", "s": "T"}, {"n": "L46", "p": "1000010000100001111000000", "s": "L"}, {"n": "T47", "p": "1111000100001000010000000", "s": "T"}, {"n": "L48", "p": "0100001000010000111100000", "s": "L"}, {"n": "T49", "p": "0111100010000100001000000", "s": "T"}, {"n": "L50", "p": "0000010000100001000011110", "s": "L"}, {"n": "T51", "p": "0000011110001000010000100", "s": "T"}, {"n": "L52", "p": "0000001000010000100001111", "s": "L"}, {"n": "T53", "p": "0000001111000100001000010", "s": "T"}, {"n": "L54", "p": "1000010000100001100000000", "s": "L"}, {"n": "L55", "p": "0100001000010000110000000", "s": "L"}, {"n": "L56", "p": "0010000100001000011000000", "s": "L"}, {"n": "L57", "p": "0001000010000100001100000", "s": "L"}, {"n": "L58", "p": "0000010000100001000011000", "s": "L"}, {"n": "L59", "p": "0000001000010000100001100", "s": "L"}, {"n": "L60", "p": "0000000100001000010000110", "s": "L"}, {"n": "L61", "p": "0000000010000100001000011", "s": "L"}], "neu": []}, "einseitig": {"titel": "Einseitig: T immer oben, L immer unten", "lern": [{"n": "T1", "p": "1110001000010000000000000", "s": "T"}, {"n": "L2", "p": "0000000000100001000011100", "s": "L"}, {"n": "T3", "p": "0111000100001000000000000", "s": "T"}, {"n": "L4", "p": "0000000000010000100001110", "s": "L"}, {"n": "T5", "p": "0011100010000100000000000", "s": "T"}, {"n": "L6", "p": "0000000000001000010000111", "s": "L"}, {"n": "T7", "p": "1111100100001000010000100", "s": "T"}, {"n": "L8", "p": "1000010000100001000011111", "s": "L"}, {"n": "T9", "p": "1110001000010000100000000", "s": "T"}, {"n": "L10", "p": "0000010000100001000011100", "s": "L"}, {"n": "T11", "p": "0111000100001000010000000", "s": "T"}, {"n": "L12", "p": "0000001000010000100001110", "s": "L"}, {"n": "T13", "p": "0011100010000100001000000", "s": "T"}, {"n": "L14", "p": "0000000100001000010000111", "s": "L"}, {"n": "T15", "p": "1111100100001000000000000", "s": "T"}, {"n": "L16", "p": "0000000000100001000011110", "s": "L"}, {"n": "T17", "p": "1111001000010000100000000", "s": "T"}, {"n": "L18", "p": "0000000000010000100001111", "s": "L"}, {"n": "T19", "p": "0111100100001000010000000", "s": "T"}, {"n": "L20", "p": "0000010000100001000011110", "s": "L"}, {"n": "T21", "p": "1111000100001000010000000", "s": "T"}, {"n": "L22", "p": "0000001000010000100001111", "s": "L"}, {"n": "T23", "p": "0111100010000100001000000", "s": "T"}, {"n": "L24", "p": "0000010000100001000011000", "s": "L"}, {"n": "L25", "p": "0000001000010000100001100", "s": "L"}, {"n": "L26", "p": "0000000100001000010000110", "s": "L"}, {"n": "L27", "p": "0000000010000100001000011", "s": "L"}], "neu": [{"n": "T1", "p": "0000000000111000100001000", "s": "T"}, {"n": "L2", "p": "1000010000111000000000000", "s": "L"}, {"n": "T3", "p": "0000000000011100010000100", "s": "T"}, {"n": "L4", "p": "0100001000011100000000000", "s": "L"}, {"n": "T5", "p": "0000000000001110001000010", "s": "T"}, {"n": "L6", "p": "0010000100001110000000000", "s": "L"}, {"n": "T7", "p": "0000011100010000100001000", "s": "T"}, {"n": "L8", "p": "1000010000100001110000000", "s": "L"}, {"n": "T9", "p": "0000001110001000010000100", "s": "T"}, {"n": "L10", "p": "0100001000010000111000000", "s": "L"}, {"n": "T11", "p": "0000000111000100001000010", "s": "T"}, {"n": "L12", "p": "0010000100001000011100000", "s": "L"}, {"n": "T13", "p": "0000000000111110010000100", "s": "T"}, {"n": "L14", "p": "1000010000111100000000000", "s": "L"}, {"n": "T15", "p": "0000011110010000100001000", "s": "T"}, {"n": "L16", "p": "0100001000011110000000000", "s": "L"}, {"n": "T17", "p": "0000001111001000010000100", "s": "T"}, {"n": "L18", "p": "1000010000100001111000000", "s": "L"}, {"n": "T19", "p": "0000011110001000010000100", "s": "T"}, {"n": "L20", "p": "0100001000010000111100000", "s": "L"}, {"n": "T21", "p": "0000001111000100001000010", "s": "T"}, {"n": "L22", "p": "1000010000100001100000000", "s": "L"}, {"n": "L23", "p": "0100001000010000110000000", "s": "L"}, {"n": "L24", "p": "0010000100001000011000000", "s": "L"}, {"n": "L25", "p": "0001000010000100001100000", "s": "L"}]}};
+const CH = {"w": [0, 1, 1, 1, 1, 0, 1, 1, 1, 1, -1, 0, 1, 0, 0, -1, 0, 1, 0, 0, -1, -1, 0, -2, -2], "T": ["1111100100001000010000100", "0111000100001000010000100", "0000011111001000010000100", "1110001000010000100000000", "1111100100001000000000000", "0011100010000100001000010", "1110001000010000000000000", "0111000100001000000000000", "0011100010000100000000000", "0000011100010000100000000", "0000001110001000010000000", "0000000111000100001000000", "0000000000111000100001000", "0000000000011100010000100", "0000000000001110001000010", "0111000100001000010000000", "0011100010000100001000000", "0000011100010000100001000", "0000001110001000010000100", "0000000111000100001000010", "0000011111001000010000000", "0000000000111110010000100", "1111001000010000100000000", "0111100100001000010000000", "0000011110010000100001000", "0000001111001000010000100", "1111000100001000010000000", "0111100010000100001000000", "0000011110001000010000100", "0000001111000100001000010"], "L": ["1000010000100001000011111", "0100001000010000100001111", "0000010000100001000011110", "1000010000100001110000000", "0000000100001000010000111", "1000010000100001000011000", "1000010000111000000000000", "0100001000011100000000000", "0010000100001110000000000", "0000010000100001110000000", "0000001000010000111000000", "0000000100001000011100000", "0000000000100001000011100", "0000000000010000100001110", "0000000000001000010000111", "0100001000010000111000000", "0010000100001000011100000", "0000010000100001000011100", "0000001000010000100001110", "1000010000111100000000000", "0100001000011110000000000", "0000010000100001111000000", "0000001000010000111100000", "0000000000100001000011110", "0000000000010000100001111", "1000010000100001111000000", "0100001000010000111100000", "0000001000010000100001111", "1000010000100001100000000", "0100001000010000110000000", "0010000100001000011000000", "0001000010000100001100000", "0000010000100001000011000", "0000001000010000100001100", "0000000100001000010000110", "0000000010000100001000011"]};
 const SCHWELLE = 1;
 const parse = s => [...s].map(Number);
 const sets = {};
-for (const k of Object.keys(DATEN)) sets[k] = DATEN[k].map(d => ({ n: d.n, p: parse(d.p), s: d.s }));
+for (const k of Object.keys(DATEN)) sets[k] = {
+  lern: DATEN[k].lern.map(d => ({ n: d.n, p: parse(d.p), s: d.s })),
+  neu: DATEN[k].neu.map(d => ({ n: d.n, p: parse(d.p), s: d.s })) };
 
 // ---- Kern: identisch mit Pruefzahlen_KI_L2.py
 const summe = (w, p) => p.reduce((a, v, i) => a + (v ? w[i] : 0), 0);
@@ -170,37 +257,45 @@ function lernschritt(w, p, soll) {
 }
 const treffer = (w, ds) => ds.filter(d => antwort(w, d.p) === d.s).length;
 
-// ---- Zustand
-let setKey = "klein", daten = sets[setKey];
-let w = Array(25).fill(0), idx = 0, runde = 0, schritte = 0, korr = 0, best = 0, verlauf = [];
-let timer = null, eigen = Array(25).fill(0), letzte = null;
-
 const $ = id => document.getElementById(id);
-function cells(el, n, cls) { el.innerHTML = ""; const out = []; for (let i = 0; i < n; i++) { const c = document.createElement(cls === "btn" ? "button" : "div"); c.className = "c" + (cls === "btn" ? " cell-btn" : ""); if (cls === "btn") { c.type = "button"; c.setAttribute("aria-label", "Feld " + "abcde"[i % 5] + (Math.floor(i / 5) + 1)); } el.appendChild(c); out.push(c); } return out; }
-const bildC = cells($("bild"), 25), gewC = cells($("gew"), 25), eigenC = cells($("eigen"), 25, "btn");
+function cells(el, n, btn) { el.innerHTML = ""; const out = []; for (let i = 0; i < n; i++) { const c = document.createElement(btn ? "button" : "div"); c.className = "c" + (btn ? " cell-btn" : ""); if (btn) { c.type = "button"; c.setAttribute("aria-label", "Feld " + "abcde"[i % 5] + (Math.floor(i / 5) + 1)); } el.appendChild(c); out.push(c); } return out; }
 const fmt = v => v > 0 ? "+" + v : v < 0 ? "−" + (-v) : "0";
-
-function zeigeBild(d) {
-  d.p.forEach((v, i) => bildC[i].classList.toggle("on", !!v));
-  $("soll").innerHTML = d ? `soll: <b>${d.s}</b>` : "";
-}
-function zeigeGewichte(p, flash) {
-  gewC.forEach((c, i) => {
+function malGewichte(zellen, w, p, flash) {
+  zellen.forEach((c, i) => {
     c.textContent = fmt(w[i]);
     c.className = "c " + (w[i] > 0 ? "p" : w[i] < 0 ? "n" : "z") + (p && p[i] ? " hit" : "") + (flash && p && p[i] ? " flash" : "");
     c.style.background = w[i] > 0 ? "var(--pos-bg)" : w[i] < 0 ? "var(--neg-bg)" : "";
   });
-  if (flash) setTimeout(() => gewC.forEach(c => c.classList.remove("flash")), 260);
+  if (flash) setTimeout(() => zellen.forEach(c => c.classList.remove("flash")), 260);
 }
-function galerie() {
-  const g = $("galerie"); g.innerHTML = "";
-  daten.forEach((d, i) => {
+function malGalerie(el, ds, w, aktiv, markiert) {
+  el.innerHTML = "";
+  ds.forEach((d, i) => {
     const ok = antwort(w, d.p) === d.s;
     const t = document.createElement("div");
-    t.className = "thumb " + (schritte ? (ok ? "ok" : "bad") : "") + (letzte === i ? " cur" : "");
+    t.className = "thumb " + (aktiv ? (ok ? "ok" : "bad") : "") + (markiert === i ? " cur" : "");
     t.innerHTML = `<div class="g">${d.p.map(v => `<i class="${v ? "on" : ""}"></i>`).join("")}</div><span>${d.n}</span>`;
-    g.appendChild(t);
+    el.appendChild(t);
   });
+}
+
+// =============================== LERNEN
+let setKey = "klein", daten = sets[setKey].lern, neu = sets[setKey].neu;
+let w = Array(25).fill(0), idx = 0, runde = 0, schritte = 0, korr = 0, best = 0, verlauf = [];
+let timer = null, eigen = Array(25).fill(0), letzte = null;
+const bildC = cells($("bild"), 25), gewC = cells($("gew"), 25), eigenC = cells($("eigen"), 25, true);
+
+function zeigeBild(d) {
+  d.p.forEach((v, i) => bildC[i].classList.toggle("on", !!v));
+  $("soll").innerHTML = `soll: <b>${d.s}</b>`;
+}
+function galerien() {
+  malGalerie($("galerie"), daten, w, schritte > 0, letzte);
+  $("neuPanel").hidden = !neu.length;
+  if (neu.length) {
+    malGalerie($("galerieNeu"), neu, w, schritte > 0, null);
+    $("sNeu").textContent = schritte ? `${treffer(w, neu)} / ${neu.length}` : "–";
+  }
 }
 function spark() {
   const s = $("spark"), n = daten.length, W = 600, H = 70;
@@ -223,12 +318,11 @@ function stats() {
 function eigenRechnen() {
   eigen.forEach((v, i) => eigenC[i].classList.toggle("on", !!v));
   const su = summe(w, eigen), a = su >= SCHWELLE ? "T" : "L";
-  $("eSumme").textContent = "Summe " + fmt(su).replace("+", "");
+  $("eSumme").textContent = "Summe " + su;
   $("eUrteil").textContent = `${su} ${su >= SCHWELLE ? "≥" : "<"} 1  →  sagt ${a}`;
   $("eUrteil").className = "verdict idle";
 }
-
-function schritt(still) {
+function schritt() {
   const i = idx, d = daten[i];
   const r = lernschritt(w, d.p, d.s);
   schritte++; if (r.korr) korr++;
@@ -236,31 +330,30 @@ function schritt(still) {
   if (idx === 0) runde++;
   const t = treffer(w, daten); best = Math.max(best, t); verlauf.push(t);
   letzte = i;
-  if (!still) {
-    zeigeBild(d);
-    $("bildTitel").textContent = `Bild ${d.n} · ${i + 1} von ${daten.length}`;
-    const schwarz = d.p.reduce((a, v) => a + v, 0);
-    $("rechnung").textContent = `${schwarz} schwarze Pixel: ihre Gewichte zusammenzählen`;
-    $("summe").textContent = `Summe ${r.su} ${r.su >= SCHWELLE ? "≥" : "<"} 1  →  sagt ${r.a}`;
-    const u = $("urteil");
-    if (!r.korr) { u.className = "verdict ok"; u.textContent = "Richtig. Nichts ändern."; }
-    else { u.className = "verdict bad"; u.textContent = `Falsch, es soll ${d.s} sein. Darum ${r.korr > 0 ? "+1" : "−1"} auf jedes schwarze Pixel.`; }
-    zeigeGewichte(d.p, !!r.korr);
-    galerie(); spark(); stats(); eigenRechnen();
-  }
-  return t;
+  zeigeBild(d);
+  $("bildTitel").textContent = `Bild ${d.n} · ${i + 1} von ${daten.length}`;
+  const schwarz = d.p.reduce((a, v) => a + v, 0);
+  $("rechnung").textContent = `${schwarz} schwarze Pixel: ihre Gewichte zusammenzählen`;
+  $("summe").textContent = `Summe ${r.su} ${r.su >= SCHWELLE ? "≥" : "<"} 1  →  sagt ${r.a}`;
+  const u = $("urteil");
+  if (!r.korr) { u.className = "verdict ok"; u.textContent = "Richtig. Nichts ändern."; }
+  else { u.className = "verdict bad"; u.textContent = `Falsch, es soll ${d.s} sein. Darum ${r.korr > 0 ? "+1" : "−1"} auf jedes schwarze Pixel.`; }
+  malGewichte(gewC, w, d.p, !!r.korr);
+  galerien(); spark(); stats(); eigenRechnen();
 }
-function fertig() {
-  // eine ganze Runde ohne Korrektur = Stillstand
-  return daten.every(d => antwort(w, d.p) === d.s);
-}
-function stopAuto() { clearInterval(timer); timer = null; $("auto").textContent = "▶ Automatisch"; }
+const fertig = () => daten.every(d => antwort(w, d.p) === d.s);
+function stopAuto() { clearTimeout(timer); timer = null; $("auto").textContent = "▶ Automatisch"; }
 function startAuto() {
   const ms = () => Math.max(30, 900 / Number($("tempo").value));
   $("auto").textContent = "❚❚ Anhalten";
   const tick = () => {
-    schritt(false);
-    if (fertig() && idx === 0) { stopAuto(); $("urteil").className = "verdict ok"; $("urteil").textContent = "Fertig: Alle Bilder werden richtig erkannt. Eine ganze Runde lang musste nichts mehr korrigiert werden."; return; }
+    schritt();
+    if (fertig() && idx === 0) {
+      stopAuto(); $("urteil").className = "verdict ok";
+      $("urteil").textContent = "Fertig: Nach dieser Runde werden alle Lernbilder richtig erkannt." +
+        (neu.length ? " Und die neuen Bilder?" : "");
+      return;
+    }
     if (runde >= 30 && idx === 0) { stopAuto(); $("urteil").className = "verdict bad"; $("urteil").textContent = `Nach 30 Runden immer noch nicht fertig. Bestes Ergebnis: ${best} von ${daten.length}. Ein einzelnes Neuron schafft diese Bilder nicht.`; return; }
     timer = setTimeout(tick, ms());
   };
@@ -268,24 +361,24 @@ function startAuto() {
 }
 function reset() {
   stopAuto();
-  daten = sets[setKey];
+  daten = sets[setKey].lern; neu = sets[setKey].neu;
   w = Array(25).fill(0); idx = 0; runde = 0; schritte = 0; korr = 0; best = 0; verlauf = []; letzte = null;
   zeigeBild(daten[0]);
   $("bildTitel").textContent = `Bild ${daten[0].n} · 1 von ${daten.length} (als Nächstes)`;
   $("rechnung").textContent = "Drücken Sie «Ein Bild lernen».";
   $("summe").textContent = "–";
   $("urteil").className = "verdict idle"; $("urteil").textContent = "Noch nichts gelernt. Alle Gewichte sind 0.";
-  zeigeGewichte(null, false); galerie(); spark(); stats(); eigenRechnen();
+  malGewichte(gewC, w, null, false); galerien(); spark(); stats(); eigenRechnen();
 }
-
-$("schritt").addEventListener("click", () => { stopAuto(); schritt(false); });
+$("schritt").addEventListener("click", () => { stopAuto(); schritt(); });
 $("auto").addEventListener("click", () => timer ? stopAuto() : startAuto());
 $("reset").addEventListener("click", reset);
 $("set").addEventListener("change", e => { setKey = e.target.value; reset(); });
 eigenC.forEach((c, i) => c.addEventListener("click", () => { eigen[i] = eigen[i] ? 0 : 1; eigenRechnen(); }));
 function eigenLernen(soll) {
   const r = lernschritt(w, eigen, soll);
-  zeigeGewichte(eigen, !!r.korr); galerie(); stats(); eigenRechnen();
+  if (!schritte) schritte = 0;
+  malGewichte(gewC, w, eigen, !!r.korr); galerien(); stats(); eigenRechnen();
   const u = $("eUrteil");
   u.className = "verdict " + (r.korr ? "bad" : "ok");
   u.textContent = r.korr ? `Es sagte ${r.a}. Korrigiert: ${r.korr > 0 ? "+1" : "−1"} auf jedes schwarze Pixel.` : `Es sagte schon ${r.a}. Nichts geändert.`;
@@ -293,7 +386,58 @@ function eigenLernen(soll) {
 $("lerneT").addEventListener("click", () => eigenLernen("T"));
 $("lerneL").addEventListener("click", () => eigenLernen("L"));
 $("leeren").addEventListener("click", () => { eigen = Array(25).fill(0); eigenRechnen(); });
-reset();
+
+// =============================== CHALLENGE
+const CW = CH.w;
+const bekanntT = new Set(CH.T), bekanntL = new Set(CH.L);
+let chBild = Array(25).fill(0);
+const chC = cells($("chBild"), 25, true), chGewC = cells($("chGew"), 25);
+const rekord = { min: null, max: null };
+const geschafft = { 1: false, 2: false, 3: false, 4: false };
+function markiere(n) { geschafft[n] = true; $("st" + n).classList.add("done"); $("st" + n).querySelector(".chip").textContent = "✓"; }
+function chRechnen() {
+  chBild.forEach((v, i) => chC[i].classList.toggle("on", !!v));
+  const n = chBild.reduce((a, v) => a + v, 0), su = summe(CW, chBild), a = su >= SCHWELLE ? "T" : "L";
+  const key = chBild.join("");
+  $("chPix").textContent = n + (n === 1 ? " Pixel" : " Pixel");
+  $("chSumme").textContent = `Summe ${su} ${su >= SCHWELLE ? "≥" : "<"} 1`;
+  const u = $("chUrteil");
+  u.textContent = "sagt " + a;
+  u.className = "verdict " + (a === "T" ? "ok" : "idle");
+  if (!$("chGew").hidden) malGewichte(chGewC, CW, chBild, false);
+  $("st3msg").textContent = "";
+  if (a === "T" && n > 0 && !bekanntT.has(key)) {
+    if (!geschafft[1]) markiere(1);
+    if (rekord.min === null || n < rekord.min) rekord.min = n;
+    if (rekord.max === null || n > rekord.max) rekord.max = n;
+    $("st2rec").textContent = `wenigste: ${rekord.min} · meiste: ${rekord.max}`;
+    if (rekord.min === 1 && rekord.max === 25 && !geschafft[2]) markiere(2);
+    if (bekanntL.has(key)) {
+      if (!geschafft[3]) markiere(3);
+      $("st3msg").textContent = "Geschafft: Dieses L kennt die Reihe – und das Neuron nennt es «T».";
+    }
+    u.textContent = "sagt T – obwohl es kein bekanntes T ist";
+  } else if (a === "T" && bekanntT.has(key)) {
+    u.textContent = "sagt T – zu Recht, das ist ein T";
+  }
+}
+chC.forEach((c, i) => c.addEventListener("click", () => { chBild[i] = chBild[i] ? 0 : 1; chRechnen(); }));
+$("chLeeren").addEventListener("click", () => { chBild = Array(25).fill(0); chRechnen(); });
+$("chZeig").addEventListener("change", e => { $("chGew").hidden = !e.target.checked; chRechnen(); });
+$("st4btn").addEventListener("click", () => markiere(4));
+
+// =============================== Ansicht über #hash
+function route() {
+  const h = location.hash.replace("#", "");
+  const ch = h === "challenge";
+  $("viewLernen").hidden = ch; $("viewChallenge").hidden = !ch;
+  $("tabLernen").setAttribute("aria-current", ch ? "false" : "page");
+  $("tabChallenge").setAttribute("aria-current", ch ? "page" : "false");
+  if (sets[h] && h !== setKey) { setKey = h; $("set").value = h; reset(); }
+}
+window.addEventListener("hashchange", route);
+reset(); chRechnen(); route();
 </script>
 
-</body></html>
+</body>
+</html>
